@@ -1,10 +1,10 @@
 {
   "version": 2,
-  "routes": [
+  "redirects": [
     {
-      "src": "/(.*)",
-      "dest": "/notes-wall.html"
+      "source": "/",
+      "destination": "/notes-wall.html",
+      "permanent": true
     }
-  ],
-  "outputDirectory": "."
+  ]
 }
