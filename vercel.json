@@ -2,55 +2,9 @@
   "version": 2,
   "routes": [
     {
-      "src": "^/notes-wall.html",
-      "dest": "/notes-wall.html"
-    },
-    {
-      "src": "^/index.html",
-      "dest": "/index.html"
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
       "src": "/(.*)",
       "dest": "/notes-wall.html"
     }
   ],
-  "outputDirectory": ".",
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        },
-        {
-          "key": "Pragma",
-          "value": "no-cache"
-        },
-        {
-          "key": "Expires",
-          "value": "0"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "ALLOWALL"
-        },
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        }
-      ]
-    }
-  ],
-  "isr": {
-    "bypassToken": "notes-wall-preview"
-  },
-  "trailingSlash": false
+  "outputDirectory": "."
 }
