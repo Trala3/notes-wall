@@ -577,14 +577,21 @@
             stickyNote.style.animation = 'popIn 0.5s ease-out forwards';
             stickyNote.style.zIndex = zIndexCounter;
             
-            // 随机位置（避免完全重叠，移动端适配）
+            // 随机位置（避免完全重叠，优化移动端适配）
             const isMobile = window.innerWidth <= 768;
             const noteWidth = isMobile ? 180 : 220;
             const noteHeight = isMobile ? 70 : 80;
-            const randomLeft = Math.random() * (window.innerWidth - noteWidth - 20) + 10;
-            const randomTop = Math.random() * (window.innerHeight - noteHeight - 80) + 10; // 留出底部控制栏空间
+            
+            // 安全计算位置，确保在视口内
+            const viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+            const viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+            
+            const randomLeft = Math.random() * (viewportWidth - noteWidth - 20) + 10;
+            const randomTop = Math.random() * (viewportHeight - noteHeight - 80) + 10; // 留出底部控制栏空间
+            
             stickyNote.style.left = `${randomLeft}px`;
             stickyNote.style.top = `${randomTop}px`;
+            stickyNote.style.touchAction = 'none'; // 优化触摸行为
             
             // 获取随机内容
             const content = getRandomContent();
@@ -720,7 +727,10 @@
             }
             
             function dragStart(e) {
-                e.preventDefault();
+                // 仅在鼠标事件中使用preventDefault，避免触摸事件阻止默认行为
+                if (e.type === 'mousedown') {
+                    e.preventDefault();
+                }
                 isDragging = true;
                 
                 // 将当前元素置于顶层
@@ -735,7 +745,6 @@
             
             function dragMove(e) {
                 if (!isDragging) return;
-                e.preventDefault();
                 
                 // 获取当前位置
                 const pos = getEventPosition(e);
@@ -750,9 +759,11 @@
                 let newTop = element.offsetTop - pos2;
                 let newLeft = element.offsetLeft - pos1;
                 
-                // 限制在视口内
-                newTop = Math.max(0, Math.min(newTop, window.innerHeight - element.offsetHeight));
-                newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - element.offsetWidth));
+                // 限制在视口内 - 优化移动设备处理
+                const viewportHeight = window.innerHeight;
+                const viewportWidth = window.innerWidth;
+                newTop = Math.max(0, Math.min(newTop, viewportHeight - element.offsetHeight));
+                newLeft = Math.max(0, Math.min(newLeft, viewportWidth - element.offsetWidth));
                 
                 element.style.top = `${newTop}px`;
                 element.style.left = `${newLeft}px`;
@@ -769,8 +780,34 @@
             }
         }
         
-        // 页面加载完成后初始化
-        window.onload = init;
+        // 页面加载完成后初始化 - 优化移动设备加载
+        if (window.addEventListener) {
+            window.addEventListener('load', init, false);
+        } else if (window.attachEvent) {
+            window.attachEvent('onload', init);
+        } else {
+            window.onload = init;
+        }
+        
+        // 添加视口调整事件处理
+        window.addEventListener('resize', function() {
+            // 当窗口大小改变时，重新计算位置，避免便签超出视口
+            const notes = document.querySelectorAll('.sticky-note');
+            const viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+            const viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+            
+            notes.forEach(note => {
+                let left = parseInt(note.style.left) || 0;
+                let top = parseInt(note.style.top) || 0;
+                
+                // 确保便签在视口内
+                left = Math.max(0, Math.min(left, viewportWidth - note.offsetWidth));
+                top = Math.max(0, Math.min(top, viewportHeight - note.offsetHeight));
+                
+                note.style.left = `${left}px`;
+                note.style.top = `${top}px`;
+            });
+        });
     </script>
 </body>
 </html>
