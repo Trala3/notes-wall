@@ -535,51 +535,66 @@
         }
         
         // 简化版自动添加函数 - 优化微信兼容性
-        function startAutoAdd() {
+        // 全局可访问的自动添加函数，完全支持移动设备
+        window.startAutoAdd = function() {
             // 清除现有定时器
             if (window.autoAddInterval) {
                 clearInterval(window.autoAddInterval);
                 window.autoAddInterval = null;
             }
             
-            // 获取间隔时间，默认值为移动设备优化的4000ms
-            const intervalTime = window.autoAddIntervalTime || 4000;
+            // 获取间隔时间，优先使用全局设置的优化值
+            const intervalTime = window.autoAddIntervalTime || 5000; // 移动设备默认5秒
+            
+            // 确保noteCount已初始化
+            window.noteCount = window.noteCount || 0;
             
             // 使用window对象存储定时器，避免局部变量问题
             window.autoAddInterval = setInterval(function() {
-                // 检查是否达到最大便签数
-                if (noteCount >= maxNotes) {
-                    clearInterval(window.autoAddInterval);
-                    window.autoAddInterval = null;
-                    return;
-                }
-                
-                // 安全添加便签
                 try {
-                    addStickyNote();
+                    // 检查是否达到最大便签数，使用全局变量
+                    if (window.noteCount >= window.maxNotes) {
+                        clearInterval(window.autoAddInterval);
+                        window.autoAddInterval = null;
+                        return;
+                    }
+                    
+                    // 安全添加便签，传递移动设备标志
+                    if (typeof window.addStickyNote === 'function') {
+                        // 传递简化动画标志
+                        window.addStickyNote({ simplified: window.disableComplexAnimations });
+                        window.noteCount++;
+                    }
                 } catch (e) {
                     // 出错时停止自动添加
                     if (window.autoAddInterval) {
                         clearInterval(window.autoAddInterval);
                         window.autoAddInterval = null;
                     }
+                    console.log('自动添加便签时出错:', e);
                 }
             }, intervalTime);
             
-            // 更新状态
-            isAutoAdding = true;
+            // 更新全局状态
+            window.isAutoAdding = true;
             updateStatusIndicator();
         }
         
-        // 停止自动添加函数 - 与优化后的startAutoAdd兼容
-        function stopAutoAdd() {
-            // 使用window对象中的定时器引用
+        // 全局可访问的停止自动添加函数
+        window.stopAutoAdd = function() {
+            // 使用window对象引用，与startAutoAdd保持一致
             if (window.autoAddInterval) {
                 clearInterval(window.autoAddInterval);
                 window.autoAddInterval = null;
             }
-            isAutoAdding = false;
-            updateStatusIndicator();
+            
+            // 更新全局状态
+            window.isAutoAdding = false;
+            
+            // 确保updateStatusIndicator函数存在才调用
+            if (typeof window.updateStatusIndicator === 'function') {
+                window.updateStatusIndicator();
+            }
         }
         
         // 更新状态指示器
@@ -595,16 +610,27 @@
         }
         
         // 添加便签函数
-        function addStickyNote() {
-            noteCount++;
-            zIndexCounter++;
+        // 全局可访问的添加便签函数，支持简化模式
+        window.addStickyNote = function(options) {
+            // 确保options是对象
+            options = options || {};
+            const simplified = options.simplified || false;
             
-            // 创建便签元素
-            const stickyNote = document.createElement('div');
-            const colorClass = getRandomColor();
-            stickyNote.className = `sticky-note ${colorClass}`;
-            stickyNote.style.animation = 'popIn 0.5s ease-out forwards';
-            stickyNote.style.zIndex = zIndexCounter;
+            // 确保全局变量已初始化
+            window.zIndexCounter = window.zIndexCounter || 1;
+            window.zIndexCounter++;
+            
+            try {
+                // 创建便签元素
+                const stickyNote = document.createElement('div');
+                const colorClass = typeof window.getRandomColor === 'function' ? window.getRandomColor() : 'color-1';
+                stickyNote.className = `sticky-note ${colorClass}`;
+                
+                // 在简化模式下禁用动画以提高性能
+                if (!simplified && typeof document.createElement('div').animate !== 'undefined') {
+                    stickyNote.style.animation = 'popIn 0.3s ease-out forwards'; // 简化动画时间
+                }
+                stickyNote.style.zIndex = window.zIndexCounter;
             
             // 随机位置（避免完全重叠，优化移动端适配）
             const isMobile = window.innerWidth <= 768;
@@ -686,13 +712,26 @@
                 stickyNote.style.animation = 'popOut 0.3s forwards';
                 setTimeout(() => {
                     if (stickyNote.parentNode) {
-                        stickyNote.parentNode.removeChild(stickyNote);
-                        noteCount--;
+                        try {
+                            stickyNote.parentNode.removeChild(stickyNote);
+                            // 使用全局变量
+                            if (window.noteCount && window.noteCount > 0) {
+                                window.noteCount--;
+                            }
+                        } catch (e) {
+                            console.log('删除便签时出错:', e);
+                        }
                     }
                 }, 300);
             }
             closeBtn.addEventListener('click', handleClose);
             closeBtn.addEventListener('touchstart', handleClose, { passive: false });
+            
+            // 闭合try块
+            } catch (e) {
+                console.log('添加便签时出错:', e);
+            }
+        }
             
             // 添加点击置顶功能（支持触摸事件）
             function handleClickToTop() {
@@ -809,45 +848,75 @@
             }
         }
         
-        // 优化版安全初始化 - 专门为微信和移动浏览器设计
-        function safeInit() {
-            // 移除try-catch以避免微信浏览器可能的异常
-            
+        // 增强的安全初始化 - 完全兼容移动浏览器
+        window.safeInit = function() {
             // 检测浏览器环境
-            const ua = navigator.userAgent;
-            const isWechat = /MicroMessenger/i.test(ua);
-            const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+            const ua = navigator.userAgent || '';
+            const isWechat = ua.indexOf('MicroMessenger') !== -1;
+            const isMobile = ua.indexOf('Android') !== -1 || 
+                             ua.indexOf('iPhone') !== -1 || 
+                             ua.indexOf('iPad') !== -1 || 
+                             ua.indexOf('iPod') !== -1 ||
+                             ua.indexOf('Mobile') !== -1;
             
-            // 针对微信和移动设备的特殊优化
-            if (isWechat || isMobile) {
-                // 更激进的性能优化
-                maxNotes = 10; // 进一步减少便签数量
-                window.autoAddIntervalTime = 4000; // 更慢的添加速度
+            // 对所有移动设备都进行最保守的优化
+            if (isMobile) {
+                // 极致性能优化
+                window.maxNotes = 8; // 进一步减少便签数量
+                window.autoAddIntervalTime = 5000; // 更慢的添加速度
                 
-                // 显示轻量级提示
-                const statusDiv = document.querySelector('.status-indicator');
-                if (statusDiv) {
-                    statusDiv.textContent = '微信模式加载中...';
+                // 禁用复杂动画效果
+                window.disableComplexAnimations = true;
+                
+                // 添加移动设备可见提示
+                try {
+                    const statusDiv = document.createElement('div');
+                    statusDiv.className = 'mobile-status';
+                    statusDiv.style.cssText = 'position:fixed; top:10px; left:50%; transform:translateX(-50%); background-color:#4CAF50; color:white; padding:8px 16px; border-radius:4px; z-index:9999; font-size:14px;';
+                    statusDiv.textContent = '移动模式加载中...';
+                    document.body.appendChild(statusDiv);
+                    setTimeout(function() {
+                        statusDiv.style.display = 'none';
+                    }, 2000);
+                } catch (e) {
+                    // 静默失败
                 }
             }
             
-            // 延迟初始化以确保DOM完全加载
+            // 确保所有必要变量已初始化
+            window.maxNotes = window.maxNotes || 10;
+            window.autoAddIntervalTime = window.autoAddIntervalTime || 4000;
+            
+            // 更长的延迟确保移动浏览器完全准备好
             setTimeout(function() {
                 try {
-                    init();
+                    // 先检查DOM元素是否存在
+                    if (document.body && typeof init === 'function') {
+                        init();
+                    } else {
+                        console.log('DOM未完全加载，延迟重试');
+                        setTimeout(window.safeInit, 300); // 重试机制
+                    }
                 } catch (e) {
-                    // 简单的错误处理
-                    alert('加载时出现问题，请刷新重试');
+                    // 静默失败，避免在移动浏览器中弹出警告
+                    console.log('初始化时出错:', e);
                 }
-            }, 200);
-        }
+            }, 300);
+        };
         
-        // 极简初始化方式 - 避免使用高级事件监听
-        if (document.addEventListener) {
-            document.addEventListener('DOMContentLoaded', safeInit);
+        // 最兼容的初始化方式 - 优先使用window.onload作为后备
+        if (window.addEventListener && window.addEventListener !== undefined) {
+            window.addEventListener('DOMContentLoaded', window.safeInit, false);
+        } else if (window.attachEvent && window.attachEvent !== undefined) {
+            // IE兼容性
+            window.attachEvent('onload', window.safeInit);
         } else {
-            // 兼容性处理
-            window.onload = safeInit;
+            // 最终后备方案
+            const oldOnload = window.onload || function(){};
+            window.onload = function() {
+                oldOnload();
+                window.safeInit();
+            };
         }
         
         // 添加视口调整事件处理
