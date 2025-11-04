@@ -3,12 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="HandheldFriendly" content="true">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="format-detection" content="telephone=no">
-    <meta name="theme-color" content="#1a1a1a">
     <title>自适应高度便签应用</title>
     <style>
         * {
@@ -412,8 +406,6 @@
             "今天也要闪闪发光",
             "保持初心，方得始终",
             "你是独一无二的",
-            "今天也要开启新的一天",
-            "宣你！", "恶搞", "保持积极", "努力学习", 
             "今天也要开心鸭",
             "努力终将开花结果",
             "你笑起来真好看",
@@ -431,6 +423,7 @@
             "你比想象中更坚强",
             "今天也要好好吃饭",
             "保持微笑，保持快乐",
+            "保持积极，努力学习",
             "你值得拥有梦想",
             "今天也要坚持学习",
             "今天很开心",
@@ -446,7 +439,6 @@
             "好好吃饭",
             "努力工作",
             "明天会更好",
-            "坚持就是胜利",
             "相信自己",
             "你很棒",
             "一切顺利",
@@ -534,67 +526,29 @@
             });
         }
         
-        // 简化版自动添加函数 - 优化微信兼容性
-        // 全局可访问的自动添加函数，完全支持移动设备
-        window.startAutoAdd = function() {
-            // 清除现有定时器
-            if (window.autoAddInterval) {
-                clearInterval(window.autoAddInterval);
-                window.autoAddInterval = null;
+        // 开始自动添加
+        function startAutoAdd() {
+            if (autoAddInterval) {
+                clearInterval(autoAddInterval);
             }
             
-            // 获取间隔时间，优先使用全局设置的优化值
-            const intervalTime = window.autoAddIntervalTime || 5000; // 移动设备默认5秒
-            
-            // 确保noteCount已初始化
-            window.noteCount = window.noteCount || 0;
-            
-            // 使用window对象存储定时器，避免局部变量问题
-            window.autoAddInterval = setInterval(function() {
-                try {
-                    // 检查是否达到最大便签数，使用全局变量
-                    if (window.noteCount >= window.maxNotes) {
-                        clearInterval(window.autoAddInterval);
-                        window.autoAddInterval = null;
-                        return;
-                    }
-                    
-                    // 安全添加便签，传递移动设备标志
-                    if (typeof window.addStickyNote === 'function') {
-                        // 传递简化动画标志
-                        window.addStickyNote({ simplified: window.disableComplexAnimations });
-                        window.noteCount++;
-                    }
-                } catch (e) {
-                    // 出错时停止自动添加
-                    if (window.autoAddInterval) {
-                        clearInterval(window.autoAddInterval);
-                        window.autoAddInterval = null;
-                    }
-                    console.log('自动添加便签时出错:', e);
+            autoAddInterval = setInterval(() => {
+                if (noteCount < maxNotes) {
+                    addStickyNote();
+                } else {
+                    clearInterval(autoAddInterval);
                 }
-            }, intervalTime);
+            }, 1500);
             
-            // 更新全局状态
-            window.isAutoAdding = true;
+            isAutoAdding = true;
             updateStatusIndicator();
         }
         
-        // 全局可访问的停止自动添加函数
-        window.stopAutoAdd = function() {
-            // 使用window对象引用，与startAutoAdd保持一致
-            if (window.autoAddInterval) {
-                clearInterval(window.autoAddInterval);
-                window.autoAddInterval = null;
-            }
-            
-            // 更新全局状态
-            window.isAutoAdding = false;
-            
-            // 确保updateStatusIndicator函数存在才调用
-            if (typeof window.updateStatusIndicator === 'function') {
-                window.updateStatusIndicator();
-            }
+        // 停止自动添加
+        function stopAutoAdd() {
+            clearInterval(autoAddInterval);
+            isAutoAdding = false;
+            updateStatusIndicator();
         }
         
         // 更新状态指示器
@@ -610,43 +564,25 @@
         }
         
         // 添加便签函数
-        // 全局可访问的添加便签函数，支持简化模式
-        window.addStickyNote = function(options) {
-            // 确保options是对象
-            options = options || {};
-            const simplified = options.simplified || false;
+        function addStickyNote() {
+            noteCount++;
+            zIndexCounter++;
             
-            // 确保全局变量已初始化
-            window.zIndexCounter = window.zIndexCounter || 1;
-            window.zIndexCounter++;
+            // 创建便签元素
+            const stickyNote = document.createElement('div');
+            const colorClass = getRandomColor();
+            stickyNote.className = `sticky-note ${colorClass}`;
+            stickyNote.style.animation = 'popIn 0.5s ease-out forwards';
+            stickyNote.style.zIndex = zIndexCounter;
             
-            try {
-                // 创建便签元素
-                const stickyNote = document.createElement('div');
-                const colorClass = typeof window.getRandomColor === 'function' ? window.getRandomColor() : 'color-1';
-                stickyNote.className = `sticky-note ${colorClass}`;
-                
-                // 在简化模式下禁用动画以提高性能
-                if (!simplified && typeof document.createElement('div').animate !== 'undefined') {
-                    stickyNote.style.animation = 'popIn 0.3s ease-out forwards'; // 简化动画时间
-                }
-                stickyNote.style.zIndex = window.zIndexCounter;
-            
-            // 随机位置（避免完全重叠，优化移动端适配）
+            // 随机位置（避免完全重叠，移动端适配）
             const isMobile = window.innerWidth <= 768;
             const noteWidth = isMobile ? 180 : 220;
             const noteHeight = isMobile ? 70 : 80;
-            
-            // 安全计算位置，确保在视口内
-            const viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
-            const viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
-            
-            const randomLeft = Math.random() * (viewportWidth - noteWidth - 20) + 10;
-            const randomTop = Math.random() * (viewportHeight - noteHeight - 80) + 10; // 留出底部控制栏空间
-            
+            const randomLeft = Math.random() * (window.innerWidth - noteWidth - 20) + 10;
+            const randomTop = Math.random() * (window.innerHeight - noteHeight - 80) + 10; // 留出底部控制栏空间
             stickyNote.style.left = `${randomLeft}px`;
             stickyNote.style.top = `${randomTop}px`;
-            stickyNote.style.touchAction = 'none'; // 优化触摸行为
             
             // 获取随机内容
             const content = getRandomContent();
@@ -712,26 +648,13 @@
                 stickyNote.style.animation = 'popOut 0.3s forwards';
                 setTimeout(() => {
                     if (stickyNote.parentNode) {
-                        try {
-                            stickyNote.parentNode.removeChild(stickyNote);
-                            // 使用全局变量
-                            if (window.noteCount && window.noteCount > 0) {
-                                window.noteCount--;
-                            }
-                        } catch (e) {
-                            console.log('删除便签时出错:', e);
-                        }
+                        stickyNote.parentNode.removeChild(stickyNote);
+                        noteCount--;
                     }
                 }, 300);
             }
             closeBtn.addEventListener('click', handleClose);
             closeBtn.addEventListener('touchstart', handleClose, { passive: false });
-            
-            // 闭合try块
-            } catch (e) {
-                console.log('添加便签时出错:', e);
-            }
-        }
             
             // 添加点击置顶功能（支持触摸事件）
             function handleClickToTop() {
@@ -795,10 +718,7 @@
             }
             
             function dragStart(e) {
-                // 仅在鼠标事件中使用preventDefault，避免触摸事件阻止默认行为
-                if (e.type === 'mousedown') {
-                    e.preventDefault();
-                }
+                e.preventDefault();
                 isDragging = true;
                 
                 // 将当前元素置于顶层
@@ -813,6 +733,7 @@
             
             function dragMove(e) {
                 if (!isDragging) return;
+                e.preventDefault();
                 
                 // 获取当前位置
                 const pos = getEventPosition(e);
@@ -827,11 +748,9 @@
                 let newTop = element.offsetTop - pos2;
                 let newLeft = element.offsetLeft - pos1;
                 
-                // 限制在视口内 - 优化移动设备处理
-                const viewportHeight = window.innerHeight;
-                const viewportWidth = window.innerWidth;
-                newTop = Math.max(0, Math.min(newTop, viewportHeight - element.offsetHeight));
-                newLeft = Math.max(0, Math.min(newLeft, viewportWidth - element.offsetWidth));
+                // 限制在视口内
+                newTop = Math.max(0, Math.min(newTop, window.innerHeight - element.offsetHeight));
+                newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - element.offsetWidth));
                 
                 element.style.top = `${newTop}px`;
                 element.style.left = `${newLeft}px`;
@@ -848,96 +767,8 @@
             }
         }
         
-        // 增强的安全初始化 - 完全兼容移动浏览器
-        window.safeInit = function() {
-            // 检测浏览器环境
-            const ua = navigator.userAgent || '';
-            const isWechat = ua.indexOf('MicroMessenger') !== -1;
-            const isMobile = ua.indexOf('Android') !== -1 || 
-                             ua.indexOf('iPhone') !== -1 || 
-                             ua.indexOf('iPad') !== -1 || 
-                             ua.indexOf('iPod') !== -1 ||
-                             ua.indexOf('Mobile') !== -1;
-            
-            // 对所有移动设备都进行最保守的优化
-            if (isMobile) {
-                // 极致性能优化
-                window.maxNotes = 8; // 进一步减少便签数量
-                window.autoAddIntervalTime = 5000; // 更慢的添加速度
-                
-                // 禁用复杂动画效果
-                window.disableComplexAnimations = true;
-                
-                // 添加移动设备可见提示
-                try {
-                    const statusDiv = document.createElement('div');
-                    statusDiv.className = 'mobile-status';
-                    statusDiv.style.cssText = 'position:fixed; top:10px; left:50%; transform:translateX(-50%); background-color:#4CAF50; color:white; padding:8px 16px; border-radius:4px; z-index:9999; font-size:14px;';
-                    statusDiv.textContent = '移动模式加载中...';
-                    document.body.appendChild(statusDiv);
-                    setTimeout(function() {
-                        statusDiv.style.display = 'none';
-                    }, 2000);
-                } catch (e) {
-                    // 静默失败
-                }
-            }
-            
-            // 确保所有必要变量已初始化
-            window.maxNotes = window.maxNotes || 10;
-            window.autoAddIntervalTime = window.autoAddIntervalTime || 4000;
-            
-            // 更长的延迟确保移动浏览器完全准备好
-            setTimeout(function() {
-                try {
-                    // 先检查DOM元素是否存在
-                    if (document.body && typeof init === 'function') {
-                        init();
-                    } else {
-                        console.log('DOM未完全加载，延迟重试');
-                        setTimeout(window.safeInit, 300); // 重试机制
-                    }
-                } catch (e) {
-                    // 静默失败，避免在移动浏览器中弹出警告
-                    console.log('初始化时出错:', e);
-                }
-            }, 300);
-        };
-        
-        // 最兼容的初始化方式 - 优先使用window.onload作为后备
-        if (window.addEventListener && window.addEventListener !== undefined) {
-            window.addEventListener('DOMContentLoaded', window.safeInit, false);
-        } else if (window.attachEvent && window.attachEvent !== undefined) {
-            // IE兼容性
-            window.attachEvent('onload', window.safeInit);
-        } else {
-            // 最终后备方案
-            const oldOnload = window.onload || function(){};
-            window.onload = function() {
-                oldOnload();
-                window.safeInit();
-            };
-        }
-        
-        // 添加视口调整事件处理
-        window.addEventListener('resize', function() {
-            // 当窗口大小改变时，重新计算位置，避免便签超出视口
-            const notes = document.querySelectorAll('.sticky-note');
-            const viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
-            const viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
-            
-            notes.forEach(note => {
-                let left = parseInt(note.style.left) || 0;
-                let top = parseInt(note.style.top) || 0;
-                
-                // 确保便签在视口内
-                left = Math.max(0, Math.min(left, viewportWidth - note.offsetWidth));
-                top = Math.max(0, Math.min(top, viewportHeight - note.offsetHeight));
-                
-                note.style.left = `${left}px`;
-                note.style.top = `${top}px`;
-            });
-        });
+        // 页面加载完成后初始化
+        window.onload = init;
     </script>
 </body>
 </html>
