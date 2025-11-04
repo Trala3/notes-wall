@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "routes": [
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/.*",
+      "dest": "/notes-wall.html"
+    }
+  ],
+  "builds": [
+    {
+      "src": "notes-wall.html",
+      "use": "@vercel/static"
+    }
+  ]
+}
